@@ -315,13 +315,15 @@ voice_assistant:
     - lambda: id(voice_assistant_phase) = ${va_thinking};
     - script.execute: update_led
   on_tts_start:
-    - lambda: id(voice_assistant_phase) = ${va_replying};
-    # Free the I2S bus now: the reply is discarded if the speaker cannot start.
     - lambda: |-
+        id(voice_assistant_phase) = ${va_replying};
+        id(va_responding) = true;
+        // Free the I2S bus for the reply without stopping the VA itself.
         id(va).set_continuous(false);
         id(mww).stop();
     - script.execute: update_led
   on_end:
+    - lambda: id(va_responding) = false;
     - wait_until:
         condition:
           - media_player.is_announcing: satellite_player
@@ -345,6 +347,7 @@ voice_assistant:
     - script.execute: set_idle_or_mute_phase
     - script.execute: update_led
   on_error:
+    - lambda: id(va_responding) = false;
     - if:
         condition:
           and:
@@ -437,18 +440,26 @@ script:
   - id: release_mic
     mode: restart
     then:
-      - lambda: |-
-          id(va).set_continuous(false);
-          id(va).request_stop();
-      - micro_wake_word.stop:
-      - wait_until:
+      # Never touch the VA while it is streaming its own reply:
+      # VoiceAssistant::request_stop() cancels the in-flight announcement when
+      # the state is STREAMING_RESPONSE. The VA has already released the mic by
+      # then anyway, so there is nothing to do.
+      - if:
           condition:
-            and:
-              - not:
-                  voice_assistant.is_running:
-              - not:
-                  microphone.is_capturing:
-          timeout: 3s
+            lambda: return !id(va_responding);
+          then:
+            - lambda: |-
+                id(va).set_continuous(false);
+                id(va).request_stop();
+            - micro_wake_word.stop:
+            - wait_until:
+                condition:
+                  and:
+                    - not:
+                        voice_assistant.is_running:
+                    - not:
+                        microphone.is_capturing:
+                timeout: 3s
 
   # Wake word listening is only possible when nothing is playing: the Echo S3R
   # has a single I2S bus, so the microphone and the speaker are mutually
@@ -666,6 +677,10 @@ globals:
     restore_value: no
     initial_value: "false"
   - id: music_active
+    type: bool
+    restore_value: no
+    initial_value: "false"
+  - id: va_responding
     type: bool
     restore_value: no
     initial_value: "false"

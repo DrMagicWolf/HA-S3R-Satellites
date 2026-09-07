@@ -17,7 +17,7 @@ esphome:
   name_add_mac_suffix: true
   project:
     name: atomechos3r.ha-satellite-led
-    version: "1.2.1"
+    version: "1.2.2"
 
 dashboard_import:
   package_import_url: github://DrMagicWolf/HA-S3R-Satellites/atomechos3r/echo-s3r-led.factory.yaml@main
