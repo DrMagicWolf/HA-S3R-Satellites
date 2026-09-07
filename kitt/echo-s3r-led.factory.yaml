@@ -20,7 +20,7 @@ esphome:
     version: "1.0.0"
 
 dashboard_import:
-  package_import_url: github://REPO_OWNER/REPO_NAME/kitt/echo-s3r-led.factory.yaml@main
+  package_import_url: github://DrMagicWolf/HA-S3R-Satellites/kitt/echo-s3r.factory.yaml@main
   import_full_config: false
 
 packages:
