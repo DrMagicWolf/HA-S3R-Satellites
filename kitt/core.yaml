@@ -230,7 +230,8 @@ media_player:
           duration: 0.3s
       - script.execute: release_mic
     on_play:
-      # Music (Sendspin / HA media) started: wake word listening must stop.
+      # Media playback started: the mic must let go of the I2S bus.
+      - lambda: id(music_active) = true;
       - script.execute: release_mic
       - script.execute: update_led
     on_idle:
@@ -238,6 +239,8 @@ media_player:
           id: media_mix_in
           decibel_reduction: 0
           duration: 0.5s
+      - lambda: |-
+          id(music_active) = (id(sendspin_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
       - if:
           condition:
             not:
@@ -253,10 +256,16 @@ media_player:
     id: sendspin_player
     sendspin_id: sendspin_hub
     on_play:
+      - lambda: id(music_active) = true;
+      - script.execute: release_mic
       - script.execute: update_led
     on_pause:
+      - lambda: id(music_active) = false;
+      - script.execute: start_wake_word
       - script.execute: update_led
     on_idle:
+      - lambda: id(music_active) = false;
+      - script.execute: start_wake_word
       - script.execute: update_led
 
 # -----------------------------------------------------------------------------
@@ -393,6 +402,7 @@ script:
                       then:
                         - lambda: id(resume_music_after_va) = true;
                         - media_player.pause: sendspin_player
+                  - lambda: id(music_active) = false;
                   - script.execute: release_mic
                   - wait_until:
                       condition:
@@ -417,11 +427,16 @@ script:
                   - voice_assistant.start:
 
   # Stop whatever holds the microphone (streaming VA or on-device mWW) and
-  # wait until the mic has actually released the I2S bus.
+  # wait until the mic has actually released the I2S bus. The VA is stopped
+  # synchronously in a lambda: a scheduled script.execute races the VA's own
+  # continuous auto-restart and both then fight over the single I2S bus.
   - id: release_mic
     mode: restart
     then:
-      - script.execute: stop_wake_word
+      - lambda: |-
+          id(va).set_continuous(false);
+          id(va).request_stop();
+      - micro_wake_word.stop:
       - wait_until:
           condition:
             and:
@@ -431,11 +446,15 @@ script:
                   microphone.is_capturing:
           timeout: 3s
 
+  # Wake word listening is only possible when nothing is playing: the Echo S3R
+  # has a single I2S bus, so the microphone and the speaker are mutually
+  # exclusive. While music plays, the button is the only way to wake KITT.
   - id: start_wake_word
     then:
       - if:
           condition:
             and:
+              - lambda: return !id(music_active);
               - switch.is_off: mute
               - not:
                   - voice_assistant.is_running:
@@ -639,6 +658,10 @@ globals:
     restore_value: no
     initial_value: ${va_not_ready}
   - id: resume_music_after_va
+    type: bool
+    restore_value: no
+    initial_value: "false"
+  - id: music_active
     type: bool
     restore_value: no
     initial_value: "false"
