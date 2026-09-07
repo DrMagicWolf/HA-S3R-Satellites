@@ -8,7 +8,7 @@
 #    Adoption creates <name>.yaml with its own API key, OTA password and your
 #    Wi-Fi secrets, importing this file as a package.
 #
-# Replace REPO_OWNER/REPO_NAME below with your public GitHub repo.
+# Replace DrMagicWolf/HA-S3R-Satellites below with your public GitHub repo.
 # =============================================================================
 substitutions:
   name: kitt-echo-s3r
@@ -18,7 +18,7 @@ esphome:
   name_add_mac_suffix: true
   project:
     name: kitt.echo-s3r-satellite
-    version: "1.0.0"
+    version: "1.1.0"
 
 dashboard_import:
   package_import_url: github://DrMagicWolf/HA-S3R-Satellites/kitt/echo-s3r.factory.yaml@main
