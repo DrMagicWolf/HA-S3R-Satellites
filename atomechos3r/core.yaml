@@ -244,6 +244,8 @@ media_player:
       - logger.log:
           format: "TRACE player idle: va_responding=%d music_active=%d"
           args: ['id(va_responding)', 'id(music_active)']
+      # Playback is over, so any reply has finished: safe to release the guard.
+      - lambda: id(va_responding) = false;
       - mixer_speaker.apply_ducking:
           id: media_mix_in
           decibel_reduction: 0
@@ -332,10 +334,13 @@ voice_assistant:
         // Free the I2S bus for the reply without stopping the VA itself.
         id(va).set_continuous(false);
         id(mww).stop();
+    - script.execute: va_response_watchdog
     - script.execute: update_led
   on_end:
+    # NOTE: this fires when the HA pipeline ends, which is BEFORE the TTS audio
+    # is fetched and played. va_responding is cleared when playback actually
+    # finishes (player on_idle) or by the watchdog, never here.
     - logger.log: "TRACE va on_end"
-    - lambda: id(va_responding) = false;
     - wait_until:
         condition:
           - media_player.is_announcing: satellite_player
@@ -360,6 +365,7 @@ voice_assistant:
     - script.execute: update_led
   on_error:
     - lambda: id(va_responding) = false;
+    - script.stop: va_response_watchdog
     - if:
         condition:
           and:
@@ -513,6 +519,13 @@ script:
             lambda: return id(wake_word_engine_location).current_option() == "On device";
           then:
             - micro_wake_word.stop:
+
+  # Safety net: if a reply never reaches the speaker, do not leave the guard set.
+  - id: va_response_watchdog
+    mode: restart
+    then:
+      - delay: 30s
+      - lambda: id(va_responding) = false;
 
   - id: set_idle_or_mute_phase
     then:
