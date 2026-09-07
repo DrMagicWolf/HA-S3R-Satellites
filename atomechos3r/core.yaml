@@ -184,13 +184,16 @@ audio_file:
 media_source:
   - platform: audio_file
     id: announcement_file_source
+    task_stack_in_psram: true
   - platform: audio_http
     id: announcement_http_source
+    task_stack_in_psram: true
   - platform: sendspin
     id: sendspin_source
     task_stack_in_psram: true
   - platform: audio_http
     id: media_http_source
+    task_stack_in_psram: true
 
 # Sendspin (multi-room sync)
 sendspin:
@@ -222,6 +225,9 @@ media_player:
         - sendspin_source
         - media_http_source
     on_announcement:
+      - logger.log:
+          format: "TRACE on_announcement: va_responding=%d music_active=%d"
+          args: ['id(va_responding)', 'id(music_active)']
       # Duck music and free the single I2S bus: the mic must be stopped before
       # the speaker can start (mic and speaker are mutually exclusive on the S3R).
       - mixer_speaker.apply_ducking:
@@ -235,6 +241,9 @@ media_player:
       - script.execute: release_mic
       - script.execute: update_led
     on_idle:
+      - logger.log:
+          format: "TRACE player idle: va_responding=%d music_active=%d"
+          args: ['id(va_responding)', 'id(music_active)']
       - mixer_speaker.apply_ducking:
           id: media_mix_in
           decibel_reduction: 0
@@ -243,8 +252,10 @@ media_player:
           id(music_active) = (id(sendspin_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
       - if:
           condition:
-            not:
-              voice_assistant.is_running:
+            and:
+              - lambda: return !id(va_responding);
+              - not:
+                  voice_assistant.is_running:
           then:
             - script.execute: start_wake_word
             - script.execute: set_idle_or_mute_phase
@@ -323,6 +334,7 @@ voice_assistant:
         id(mww).stop();
     - script.execute: update_led
   on_end:
+    - logger.log: "TRACE va on_end"
     - lambda: id(va_responding) = false;
     - wait_until:
         condition:
