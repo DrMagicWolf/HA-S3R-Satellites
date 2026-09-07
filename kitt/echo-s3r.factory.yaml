@@ -1,0 +1,30 @@
+---
+# =============================================================================
+# kitt/echo-s3r.factory.yaml — factory image, plain Atom Echo S3R (no LED)
+#
+# 1. Flash this once onto any S3R (ESPHome Builder → Install, or ESPHome Web).
+# 2. Provision Wi-Fi over USB when prompted (Improv).
+# 3. The device appears in ESPHome Builder as "Discovered" → Adopt.
+#    Adoption creates <name>.yaml with its own API key, OTA password and your
+#    Wi-Fi secrets, importing this file as a package.
+#
+# Replace REPO_OWNER/REPO_NAME below with your public GitHub repo.
+# =============================================================================
+substitutions:
+  name: kitt-echo-s3r
+  friendly_name: KITT Echo S3R
+
+esphome:
+  name_add_mac_suffix: true
+  project:
+    name: kitt.echo-s3r-satellite
+    version: "1.0.0"
+
+dashboard_import:
+  package_import_url: github://REPO_OWNER/REPO_NAME/kitt/echo-s3r.factory.yaml@main
+  import_full_config: false
+
+packages:
+  core: !include core.yaml
+  hw: !include hw-echo-s3r.yaml
+  led: !include led-none.yaml

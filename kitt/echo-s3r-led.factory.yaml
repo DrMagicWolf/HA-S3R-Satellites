@@ -1,0 +1,29 @@
+---
+# =============================================================================
+# kitt/echo-s3r-led.factory.yaml — factory image, Atom Echo S3R with one
+# SK6812/WS2812 on the Grove port (yellow wire = G2). Same adopt flow as
+# echo-s3r.factory.yaml. Override led_pin / led_chipset in the adopted file
+# if a unit is wired differently.
+#
+# Replace REPO_OWNER/REPO_NAME below with your public GitHub repo.
+# =============================================================================
+substitutions:
+  name: kitt-echo-s3r
+  friendly_name: KITT Echo S3R
+  led_pin: GPIO2
+  led_chipset: SK6812
+
+esphome:
+  name_add_mac_suffix: true
+  project:
+    name: kitt.echo-s3r-led-satellite
+    version: "1.0.0"
+
+dashboard_import:
+  package_import_url: github://REPO_OWNER/REPO_NAME/kitt/echo-s3r-led.factory.yaml@main
+  import_full_config: false
+
+packages:
+  core: !include core.yaml
+  hw: !include hw-echo-s3r.yaml
+  led: !include led-grove-ws2812.yaml
