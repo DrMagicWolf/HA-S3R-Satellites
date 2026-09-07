@@ -88,6 +88,44 @@ button:
   - platform: factory_reset
     id: factory_reset_btn
     internal: true
+  - platform: restart
+    id: reboot_btn
+    internal: true
+
+# -----------------------------------------------------------------------------
+# I2S bus watchdog
+#
+# ESPHome's i2s_audio speaker calls parent_->unlock() in stop_i2s_driver_()
+# even on paths where try_lock() failed and the lock was never held. That
+# corrupts the shared bus mutex, after which every start fails with
+# "Parent bus is busy" forever and the device is silent until power-cycled.
+# Detect the wedge (player says it is playing, speaker is not running) and
+# reboot. Remove this once the upstream fix lands.
+# -----------------------------------------------------------------------------
+interval:
+  - interval: 2s
+    then:
+      - if:
+          condition:
+            and:
+              - lambda: |-
+                  return id(satellite_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING ||
+                         id(satellite_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING;
+              - not:
+                  speaker.is_playing: i2s_speaker
+          then:
+            - lambda: id(bus_stuck_ticks)++;
+          else:
+            - lambda: id(bus_stuck_ticks) = 0;
+      - if:
+          condition:
+            lambda: return id(bus_stuck_ticks) >= 10;
+          then:
+            - logger.log:
+                level: ERROR
+                format: "I2S bus lock wedged for 20 s; rebooting to recover"
+            - lambda: id(bus_stuck_ticks) = 0;
+            - button.press: reboot_btn
 
 # -----------------------------------------------------------------------------
 # Top button (GPIO41 on every Atom S3-family core)
@@ -709,3 +747,7 @@ globals:
     type: bool
     restore_value: no
     initial_value: "false"
+  - id: bus_stuck_ticks
+    type: int
+    restore_value: no
+    initial_value: "0"
