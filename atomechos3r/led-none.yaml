@@ -1,0 +1,21 @@
+---
+# atomechos3r/led-none.yaml — no status LED (stock Atom Echo S3R). All hooks are no-ops.
+script:
+  - id: led_idle
+    then: []
+  - id: led_listening
+    then: []
+  - id: led_thinking
+    then: []
+  - id: led_replying
+    then: []
+  - id: led_playing
+    then: []
+  - id: led_muted
+    then: []
+  - id: led_error
+    then: []
+  - id: led_not_ready
+    then: []
+  - id: led_off
+    then: []

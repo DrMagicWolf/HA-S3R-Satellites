@@ -1,0 +1,123 @@
+---
+# =============================================================================
+# atomechos3r/led-grove-ws2812.yaml — one SK6812/WS2812 on the Grove port
+# PORT.CUSTOM (HY2.0-4P): black GND, red 5V, yellow G2, white G1
+# Override led_pin / led_num / led_chipset / led_brightness per device.
+#
+#   listening  green <-> blue cross-fade
+#   thinking   cyan breathing
+#   replying   steady blue
+#   playing    yellow breathing
+#   muted      solid red
+#   error      red triple blink, then back to normal
+#   not ready  dim amber slow pulse (no Wi-Fi / no HA)
+#   idle       off
+# =============================================================================
+
+substitutions:
+  led_pin: GPIO2
+  led_num: "1"
+  led_chipset: SK6812
+  led_channel_colors: GRB
+  led_brightness: "0.6"
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: status_led
+    name: Status LED
+    internal: true
+    pin: ${led_pin}
+    num_leds: ${led_num}
+    chipset: ${led_chipset}
+    channel_colors: ${led_channel_colors}
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 0s
+    effects:
+      - addressable_lambda:
+          name: listening
+          update_interval: 25ms
+          lambda: |-
+            // green <-> blue cross-fade, ~1.6 s period
+            float p = (sinf(millis() / 250.0f) + 1.0f) * 0.5f;
+            it.all() = Color(0, (uint8_t) (255 * (1.0f - p)), (uint8_t) (255 * p));
+      - addressable_lambda:
+          name: thinking
+          update_interval: 25ms
+          lambda: |-
+            float p = 0.25f + 0.75f * (sinf(millis() / 180.0f) + 1.0f) * 0.5f;
+            it.all() = Color(0, (uint8_t) (200 * p), (uint8_t) (255 * p));
+      - addressable_lambda:
+          name: playing
+          update_interval: 25ms
+          lambda: |-
+            // yellow fade in/out, ~2.5 s period
+            float p = 0.08f + 0.92f * (sinf(millis() / 400.0f) + 1.0f) * 0.5f;
+            it.all() = Color((uint8_t) (255 * p), (uint8_t) (170 * p), 0);
+      - addressable_lambda:
+          name: not_ready
+          update_interval: 40ms
+          lambda: |-
+            float p = 0.05f + 0.25f * (sinf(millis() / 800.0f) + 1.0f) * 0.5f;
+            it.all() = Color((uint8_t) (255 * p), (uint8_t) (90 * p), 0);
+      - addressable_lambda:
+          name: error
+          update_interval: 100ms
+          lambda: |-
+            bool on = ((millis() / 150) % 2) == 0;
+            it.all() = on ? Color(255, 0, 0) : Color::BLACK;
+
+script:
+  - id: led_idle
+    then:
+      - light.turn_off: status_led
+  - id: led_off
+    then:
+      - light.turn_off: status_led
+  - id: led_listening
+    then:
+      - light.turn_on:
+          id: status_led
+          brightness: ${led_brightness}
+          effect: listening
+  - id: led_thinking
+    then:
+      - light.turn_on:
+          id: status_led
+          brightness: ${led_brightness}
+          effect: thinking
+  - id: led_replying
+    then:
+      - light.turn_on:
+          id: status_led
+          brightness: ${led_brightness}
+          effect: none
+          red: 0.1
+          green: 0.35
+          blue: 1.0
+  - id: led_playing
+    then:
+      - light.turn_on:
+          id: status_led
+          brightness: ${led_brightness}
+          effect: playing
+  - id: led_muted
+    then:
+      - light.turn_on:
+          id: status_led
+          brightness: ${led_brightness}
+          effect: none
+          red: 1.0
+          green: 0.0
+          blue: 0.0
+  - id: led_not_ready
+    then:
+      - light.turn_on:
+          id: status_led
+          brightness: ${led_brightness}
+          effect: not_ready
+  - id: led_error
+    then:
+      - light.turn_on:
+          id: status_led
+          brightness: ${led_brightness}
+          effect: error
